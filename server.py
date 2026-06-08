@@ -99,7 +99,7 @@ def get_audio_format(filename: str, content: bytes) -> str:
 
 
 def recognize_audio(audio_path: str, language: Optional[str] = None) -> dict:
-    result = model.recognize(audio_path)
+    result = model.recognize(audio_path, channel="mean")
 
     if hasattr(result, "__iter__"):
         segments = []
