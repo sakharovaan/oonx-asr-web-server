@@ -12,7 +12,7 @@ from starlette.routing import Route
 
 MODEL_NAME = os.environ.get("ONNX_ASR_MODEL", "gigaam-v3-e2e-rnnt")
 VAD_MODEL = os.environ.get("ONNX_ASR_VAD", "silero")
-MAX_FILE_SIZE_MB = 25
+MAX_FILE_SIZE_MB = 2500
 SUPPORTED_FORMATS = {"mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"}
 
 model = None
@@ -338,8 +338,8 @@ async def lifespan(app):
 routes = [
     Route("/health", health),
     Route("/v1/models", models),
-    Route("/openai/v1/audio/transcriptions", transcriptions, methods=["POST"]),
-    Route("/openai/v1/audio/translations", translations, methods=["POST"]),
+    Route("/v1/audio/transcriptions", transcriptions, methods=["POST"]),
+    Route("/v1/audio/translations", translations, methods=["POST"]),
 ]
 
 app = Starlette(routes=routes, lifespan=lifespan)
