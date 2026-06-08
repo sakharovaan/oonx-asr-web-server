@@ -22,7 +22,7 @@ vad = None
 def load_model():
     global model, vad
     print(f"Loading model: {MODEL_NAME}")
-    model = onnx_asr.load_model(MODEL_NAME)
+    model = onnx_asr.load_model(MODEL_NAME, providers=["CPUExecutionProvider"])
     print("Model loaded successfully")
     print(f"Loading VAD: {VAD_MODEL}")
     vad = onnx_asr.load_vad(VAD_MODEL)
