@@ -11,6 +11,8 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 MODEL_NAME = os.environ.get("ONNX_ASR_MODEL", "gigaam-v3-e2e-rnnt")
+MODEL_PROVIDER = os.environ.get("ONNX_ASR_PROVIDER")
+MODEL_QUANT = os.environ.get("ONNX_ASR_QUANT")
 VAD_MODEL = os.environ.get("ONNX_ASR_VAD", "silero")
 MAX_FILE_SIZE_MB = 2500
 SUPPORTED_FORMATS = {"mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"}
@@ -22,7 +24,10 @@ vad = None
 def load_model():
     global model, vad
     print(f"Loading model: {MODEL_NAME}")
-    model = onnx_asr.load_model(MODEL_NAME, providers=["CPUExecutionProvider"])
+    if not MODEL_QUANT:
+        model = onnx_asr.load_model(model=MODEL_NAME, providers=[MODEL_PROVIDER])
+    else:
+        model = onnx_asr.load_model(model=MODEL_NAME, quantization=MODEL_QUANT, providers=[MODEL_PROVIDER])
     print("Model loaded successfully")
     print(f"Loading VAD: {VAD_MODEL}")
     vad = onnx_asr.load_vad(VAD_MODEL)
@@ -198,6 +203,7 @@ async def transcriptions(request: Request) -> Response:
                 os.unlink(tmp_audio_path)
 
     except Exception as e:
+        raise
         return JSONResponse(
             {"error": {"message": f"Recognition error: {str(e)}", "type": "invalid_request_error"}},
             status_code=500
