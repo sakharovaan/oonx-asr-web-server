@@ -4,6 +4,9 @@ import tempfile
 from typing import Optional, Literal
 
 import onnx_asr
+import soundfile as sf
+import numpy as np
+import av
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -36,26 +39,63 @@ def load_model():
 
 
 def convert_to_wav(file_content: bytes, source_format: str) -> bytes:
+    if source_format == "webm":
+        return _convert_webm_to_wav(file_content)
+
     try:
-        import soundfile as sf
         audio_data, sample_rate = sf.read(io.BytesIO(file_content))
         buffer = io.BytesIO()
         sf.write(buffer, audio_data, sample_rate, format="WAV")
         return buffer.getvalue()
-    except ImportError:
+    except Exception:
         pass
 
     try:
-        import numpy as np
         import scipy.io.wavfile as wavfile
         audio_data = np.frombuffer(file_content, dtype=np.int16)
         buffer = io.BytesIO()
         wavfile.write(buffer, 16000, audio_data)
         return buffer.getvalue()
-    except ImportError:
+    except Exception:
         pass
 
     return file_content
+
+
+def _convert_webm_to_wav(file_content: bytes) -> bytes:
+    buffer = io.BytesIO(file_content)
+    container = av.open(buffer)
+
+    audio_stream = container.streams.audio[0]
+    sample_rate = int(audio_stream.rate)
+
+    samples = []
+    for packet in container.demux(audio_stream):
+        for frame in packet.decode():
+            arr = frame.to_ndarray()
+            if arr.ndim == 2:
+                arr = arr.T
+            samples.append(arr)
+
+    if not samples:
+        container.close()
+        raise ValueError("No audio frames found in webm")
+
+    audio_data = np.concatenate(samples, axis=0)
+
+    if audio_data.ndim > 1 and audio_data.shape[1] > 1:
+        audio_data = audio_data.mean(axis=1)
+
+    if audio_data.dtype != np.float32:
+        audio_data = audio_data.astype(np.float32)
+
+    audio_data = np.clip(audio_data, -1.0, 1.0)
+
+    container.close()
+
+    output = io.BytesIO()
+    sf.write(output, audio_data, sample_rate, format="WAV")
+    return output.getvalue()
 
 
 def parse_multipart_form(body: bytes, boundary: bytes) -> dict:
